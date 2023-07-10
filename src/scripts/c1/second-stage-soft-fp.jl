@@ -1,5 +1,5 @@
 
-function compute_c1_solution2(con_file::String, inl_file::String, raw_file::String, rop_file::String, time_limit::Int, scoring_method::Int, network_model::String; output_dir::String="", scenario_id::String="none")
+function compute_c1_solution2(con_file::String, inl_file::String, raw_file::String, rop_file::String, time_limit::Int, scoring_method::Int, network_model::String; output_dir::String="", scenario_id::String="none", sol1_file::String="solution1.txt")
     time_data_start = time()
     goc_data = parse_c1_files(con_file, inl_file, raw_file, rop_file, scenario_id=scenario_id)
     network = build_c1_pm_model(goc_data)
@@ -38,6 +38,7 @@ function compute_c1_solution2(con_file::String, inl_file::String, raw_file::Stri
             scenario_id = scenario_id,
             output_dir = output_dir,
             cont_range = cont_start:cont_end,
+            sol1_file=sol1_file
         )
         #println(pd)
         push!(process_data, pd)
@@ -54,7 +55,7 @@ function compute_c1_solution2(con_file::String, inl_file::String, raw_file::Stri
     #    end
     #end
 
-
+    # map the c1_solution2_solver function to the process_data array
     solution2_files = pmap(c1_solution2_solver, process_data)
 
     # solution2_files = []
@@ -70,7 +71,13 @@ function compute_c1_solution2(con_file::String, inl_file::String, raw_file::Stri
     info(LOGGER, "contingency eval time: $(time_contingencies)")
 
     info(LOGGER, "combine $(length(solution2_files)) solution2 files")
-    c1_combine_files(solution2_files, "solution2.txt"; output_dir=output_dir)
+
+    # extract the characters excepts the first 4 from sol1_file
+    # e.g. sol1/sol1_1_1.txt -> 1_1
+    case_code = sol1_file[10:end-3]
+    sol2_file = "sol2/sol2" * case_code * "txt"
+    c1_combine_files(solution2_files, sol2_file; output_dir=output_dir)
+    # c1_combine_files(solution2_files, "solution2.txt"; output_dir=output_dir)
     remove_c1_files(solution2_files)
 
     println("")
@@ -97,7 +104,7 @@ function compute_c1_solution2(con_file::String, inl_file::String, raw_file::Stri
     ]
     println(join(data, ", "))
 
-    write_c1_file_paths(goc_data.files; output_dir=output_dir)
+    write_c1_file_paths(goc_data.files; output_dir=output_dir, solution1_file=sol1_file, solution2_file=sol2_file)
 
     #println("")
     #write_evaluation_summary(goc_data, network, objective_lb=-Inf, load_time=load_time, contingency_time=time_contingencies, output_dir=output_dir)
@@ -113,7 +120,7 @@ end
         process_data.rop_file, scenario_id=process_data.scenario_id)
     network = build_c1_pm_model(goc_data)
 
-    sol = read_c1_solution1(network, output_dir=process_data.output_dir)
+    sol = read_c1_solution1(network, output_dir=process_data.output_dir, state_file=process_data.sol1_file)
     PowerModels.update_data!(network, sol)
     time_data = time() - time_data_start
 

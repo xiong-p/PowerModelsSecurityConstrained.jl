@@ -51,14 +51,13 @@ function run_c1_opf_cheap(file, model_constructor, solver; kwargs...)
     return _PM.run_model(file, model_constructor, solver, build_c1_opf_cheap; ref_extensions=[ref_c1!], kwargs...)
 end
 
-
 function build_c1_opf_cheap(pm::_PM.AbstractPowerModel)
     _PM.variable_bus_voltage(pm)
     _PM.variable_gen_power(pm)
     _PM.variable_branch_power(pm, bounded=false)
 
     variable_c1_branch_power_slack(pm)
-    variable_c1_shunt_admittance_imaginary(pm)
+    variable_c1_shunt_admittance_imaginary(pm) ## bs, wbs
 
     _PM.constraint_model_voltage(pm)
 
@@ -240,8 +239,7 @@ function build_c1_opf_cheap_target_acp(pm::_PM.AbstractPowerModel)
 
     vm = var(pm, :vm)
     for (i,bus) in ref(pm, :bus)
-        vm_midpoint = (bus["vmax"] + bus["vmin"])/2.0
-        vm_target = min(vm_midpoint + 0.04, bus["vmax"])
+        vm_target = bus["vm_start"]
 
         @constraint(pm.model, vm[i] == vm_target + var(pm, :vvm_delta, i))
     end
@@ -250,7 +248,6 @@ function build_c1_opf_cheap_target_acp(pm::_PM.AbstractPowerModel)
         _PM.constraint_theta_ref(pm, i)
     end
 
-    start_time = time()
     for (i,gen) in ref(pm, :gen)
         constraint_c1_gen_power_real_deviation(pm, i)
     end
@@ -281,7 +278,129 @@ function build_c1_opf_cheap_target_acp(pm::_PM.AbstractPowerModel)
     )
 end
 
+function run_c1_opf_cheap_fix_acp(file, solver; kwargs...)
+    return _PM.solve_model(file, _PM.ACPPowerModel, solver, build_c1_opf_cheap_fix_acp; ref_extensions=[ref_c1!], kwargs...)
+end
 
+""
+function build_c1_opf_cheap_fix_acp(pm::_PM.AbstractPowerModel)
+    _PM.variable_bus_voltage(pm)
+    _PM.variable_gen_power(pm)
+    _PM.variable_branch_power(pm, bounded=false)
+
+    variable_c1_branch_power_slack(pm)
+    variable_c1_shunt_admittance_imaginary(pm)
+
+    variable_c1_bus_voltage_magnitude_delta(pm)
+    variable_c1_gen_power_real_delta(pm)
+
+    _PM.constraint_model_voltage(pm)
+
+    vm = var(pm, :vm)
+    for (i,bus) in ref(pm, :bus)
+        if haskey(bus, "vm_fix")
+            vm_target = bus["vm_start"]
+            @constraint(pm.model, vm[i] == vm_target + var(pm, :vvm_delta, i))
+        end
+        # vm_target = bus["vm_start"]
+        #     @constraint(pm.model, vm[i] == vm_target + var(pm, :vvm_delta, i))
+    end
+
+    for i in ids(pm, :ref_buses)
+        _PM.constraint_theta_ref(pm, i)
+    end
+
+    for (i,gen) in ref(pm, :gen)
+        # constraint_c1_gen_power_real_deviation(pm, i)
+        if haskey(gen, "gen_fix")
+            constraint_c1_gen_power_real_deviation(pm, i)
+        end
+    end
+
+    for i in ids(pm, :bus)
+        constraint_c1_power_balance_shunt_dispatch(pm, i)
+    end
+
+    for (i,branch) in ref(pm, :branch)
+        constraint_goc_ohms_yt_from(pm, i)
+        _PM.constraint_ohms_yt_to(pm, i)
+
+        _PM.constraint_voltage_angle_difference(pm, i)
+
+        _PM.constraint_thermal_limit_from(pm, i)
+        _PM.constraint_thermal_limit_to(pm, i)
+    end
+
+
+    vvm_delta = var(pm, :vvm_delta)
+    sm_slack = var(pm, :sm_slack)
+    pg_delta = var(pm, :pg_delta)
+
+    @objective(pm.model, Min,
+        sum( 1e8*vvm_delta[i]^2 for (i,bus) in ref(pm, :bus)) +
+        sum( 5e5*sm_slack[i] for (i,branch) in ref(pm, :branch)) +
+        sum( 1e5*pg_delta[i]^2 for (i,gen) in ref(pm, :gen))
+    )
+end
+
+
+function self_obj(x)
+    s = 0
+    for xx in x
+        s += xx^2
+    end
+    return s
+end
+
+function run_c1_opf_acp(file, solver; kwargs...)
+     return _PM.solve_model(file, _PM.ACPPowerModel, solver, build_c1_opf_acp; ref_extensions=[ref_c1!], kwargs...)
+end
+
+function build_c1_opf_acp(pm::_PM.AbstractPowerModel)
+    _PM.variable_bus_voltage(pm)
+    _PM.variable_gen_power(pm)
+    _PM.variable_branch_power(pm, bounded=false)
+
+    variable_c1_branch_power_slack(pm) #sm_slack >= 0
+    variable_bus_delta_abs_power_real(pm) #p_delta_abs >= 0, <= 0.5
+    variable_bus_delta_abs_power_imaginary(pm) #q_delta_abs >= 0, <= 0.5
+    variable_c1_shunt_admittance_imaginary(pm)
+
+    # _PM.constraint_model_voltage(pm)
+
+    for i in ids(pm, :ref_buses)
+        _PM.constraint_theta_ref(pm, i)
+    end
+
+    for i in ids(pm, :bus)
+        constraint_c1_power_balance_shunt_dispatch_soft(pm, i)
+    end
+
+    for (i,branch) in ref(pm, :branch)
+        constraint_goc_ohms_yt_from(pm, i)
+        _PM.constraint_ohms_yt_to(pm, i)
+
+        _PM.constraint_voltage_angle_difference(pm, i)
+
+        constraint_c1_thermal_limit_from_soft(pm, i)
+        constraint_c1_thermal_limit_to_soft(pm, i)
+    end
+
+    sm_slack = var(pm, :sm_slack)
+    p_delta_abs = var(pm, :p_delta_abs)
+    q_delta_abs = var(pm, :q_delta_abs)
+
+    # @objective(pm.model, Min,
+    #     sum( 1e8*p_delta_abs[i]^2 for (i,bus) in ref(pm, :bus)) +
+    #     sum( 1e8*q_delta_abs[i]^2 for (i,bus) in ref(pm, :bus)) +
+    #     sum( 1e8*sm_slack[i] for (i,branch) in ref(pm, :branch))
+    # )
+
+    x = [p_delta_abs[i] for (i, bus) in ref(pm, :bus)]
+    
+    JuMP.register(pm.model,:self_obj, 1, self_obj, autodiff=true)
+    @objective(pm.model, Min, self_obj(x))
+end
 
 """
 An OPF formulation conforming to the ARPA-e GOC Challenge 2 specification.

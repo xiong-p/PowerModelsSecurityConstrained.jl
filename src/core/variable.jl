@@ -106,10 +106,26 @@ function variable_c1_branch_power_slack(pm::_PM.AbstractPowerModel; nw::Int=nw_i
     if bounded
         for (l,branch) in ref(pm, nw, :branch_sm_active)
             JuMP.set_lower_bound(sm_slack[l], 0.0)
+            JuMP.set_upper_bound(sm_slack[l], 0.1)
         end
     end
 
     report && _PM.sol_component_value(pm, nw, :branch, :sm_slack, ids(pm, nw, :branch_sm_active), sm_slack)
+end
+
+function variable_c1_power_balance_slack(pm::_PM.AbstractPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    p_balance_slack = var(pm, nw)[:p_balance_slack] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :bus)], base_name="$(nw)_p_balance_slack",
+        start = _PM.comp_start_value(ref(pm, nw, :bus, i), "p_balance_slack_start")
+    )
+
+    if bounded
+        for (i,bus) in ref(pm, nw, :bus)
+            JuMP.set_lower_bound(p_balance_slack[i], 0.0)
+        end
+    end
+
+    report && _PM.sol_component_value(pm, nw, :bus, :p_balance_slack, ids(pm, nw, :bus), p_balance_slack)
 end
 
 
