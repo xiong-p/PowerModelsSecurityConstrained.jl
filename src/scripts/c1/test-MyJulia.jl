@@ -3,17 +3,17 @@
 using PowerModelsSecurityConstrained
 pmsc_path = joinpath(dirname(pathof(PowerModelsSecurityConstrained)), "..")
 
-InFile1=joinpath(pmsc_path, "test/data/c1/scenario_01/case.con")
-InFile2=joinpath(pmsc_path, "test/data/c1/scenario_01/case.inl")
-InFile3=joinpath(pmsc_path, "test/data/c1/scenario_01/case.raw")
-InFile4=joinpath(pmsc_path, "test/data/c1/scenario_01/case.rop")
+InFile1=joinpath(pmsc_path, "test/data/c1/scenario_02/case.con")
+InFile2=joinpath(pmsc_path, "test/data/c1/scenario_02/case.inl")
+InFile3=joinpath(pmsc_path, "test/data/c1/scenario_02/case.raw")
+InFile4=joinpath(pmsc_path, "test/data/c1/scenario_02/case.rop")
 
 TimeLimitInSeconds=600
 ScoringMethod=2
-NetworkModel="IEEE 14"
+NetworkModel="scenario_02"
 
 include("MyJulia1.jl")
-MyJulia1(InFile1, InFile2, InFile3, InFile4, TimeLimitInSeconds, ScoringMethod, NetworkModel)
+MyJulia1(InFile1, InFile2, InFile3, InFile4, TimeLimitInSeconds, ScoringMethod, NetworkModel, "")
 
 include("MyJulia2.jl")
-MyJulia2(InFile1, InFile2, InFile3, InFile4, TimeLimitInSeconds, ScoringMethod, NetworkModel)
+MyJulia2(InFile1, InFile2, InFile3, InFile4, TimeLimitInSeconds, ScoringMethod, NetworkModel, "")
