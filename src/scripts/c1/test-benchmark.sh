@@ -26,12 +26,10 @@
 #     # eval $cmd_two&>Benchmark2.log
 # done
 
-
-# network_dir='/home/jxxiong/A-xjx/Network_03R-10/'
 network_dir='/home/jxxiong/A-xjx/Network_1/'
-# network_dir='/home/jxxiong/A-xjx/IEEE14/'
+
 # for scenario in "$network_dir"/*/;
-for scenario_id in $(seq 301 350);
+for scenario_id in $(seq 601 601);
 do
     echo $scenario_id
     scenario=$network_dir"scenario_"$scenario_id"/"
