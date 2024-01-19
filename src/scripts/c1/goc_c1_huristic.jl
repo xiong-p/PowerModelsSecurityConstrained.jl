@@ -33,11 +33,12 @@ end
 #println("script startup time: $(time() - start_init)")
 
 
-function compute_c1_solution1(con_file::String, inl_file::String, raw_file::String, rop_file::String, time_limit::Int, scoring_method::Int, network_model::String; output_dir::String="", scenario_id::String="none", gurobi=false)
+function compute_c1_solution1(con_file::String, inl_file::String, raw_file::String, rop_file::String, time_limit::Int, scoring_method::Int, network_model::String; output_dir::String="", scenario_id::String="none", gurobi=false, save_time_dir="")
     time_start = time()
     info(LOGGER, "time remaining: $(time_limit)")
 
-    goc_data = parse_c1_files(con_file, inl_file, raw_file, rop_file, scenario_id=scenario_id)
+    # goc_data = parse_c1_files(con_file, inl_file, raw_file, rop_file, scenario_id=scenario_id)
+    goc_data = parse_c1_files(con_file, inl_file, raw_file, rop_file, scenario_id=network_model)
     network = build_c1_pm_model(goc_data)
     network["gen_flow_cuts"] = []
     network["branch_flow_cuts"] = []
@@ -403,4 +404,8 @@ function compute_c1_solution1(con_file::String, inl_file::String, raw_file::Stri
     write_c1_contingencies(network, output_dir=output_dir)
 
     write_c1_scopf_summary(goc_data.scenario, network, gen_cost, branch_flow_cuts=total_cuts, load_time=time_data, solve_time=time_solve, filter_time=time_filter, total_time = time() - time_start)
+
+    if length(save_time_dir) > 0
+        write_solve_time(save_time_dir, goc_data.scenario, gen_cost, load_time=time_data, solve_time=time_solve, filter_time=time_filter, total_time = time() - time_start)
+    end
 end
