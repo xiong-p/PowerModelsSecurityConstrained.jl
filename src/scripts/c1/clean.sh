@@ -1,7 +1,7 @@
 #!/bin/bash
 
-rm MyJulia1.log
-rm MyJulia2.log
+rm Benchmark1.log
+rm Benchmark2.log
 
 rm solution1.txt
 rm solution1_apo.txt

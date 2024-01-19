@@ -50,9 +50,9 @@ include("core/ref.jl")
 
 include("form/acp.jl")
 include("form/acr.jl")
-include("form/wr.jl")
-include("form/apo.jl")
-include("form/dcp.jl")
+# include("form/wr.jl")
+# include("form/apo.jl")
+# include("form/dcp.jl")
 
 include("io/goc.jl")
 include("io/goc_c1.jl")
