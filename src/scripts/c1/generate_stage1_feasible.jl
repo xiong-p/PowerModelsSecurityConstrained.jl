@@ -19,7 +19,7 @@ include("distributed.jl")
 include("second-stage-soft-fp-with-stage1.jl")
 
 include("common.jl")
-include("../../io/goc_c1.jl")
+# include("../../io/goc_c1.jl")
 
 
 function calc_first_stage_feasible(network, factor, nlp_solver, idx, count, case_dir, scenario, sample_fac)
@@ -82,7 +82,7 @@ fixing some buses and generators""
 function main(args)
     println("scenario: ", args["scenario"])
     scenario = args["scenario"]
-    case_dir = "/home/jxxiong/A-xjx/Network_1/"
+    case_dir = "/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl/data/Network_1/"
     # case_dir = "/home/jxxiong/A-xjx/Network_03R-10/"
     ini_file = joinpath(case_dir, "inputfiles.ini")
 

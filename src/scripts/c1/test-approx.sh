@@ -1,7 +1,6 @@
 #!/bin/sh
 
-network_dir='/home/jxxiong/A-xjx/Network_1/'
-# network_dir='/home/jxxiong/A-xjx/Network_03R-10/'
+network_dir="/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl/data/Network_1/"
 # for scenario in "$network_dir"/*/;
 # 601- 650 for larger network
 # 301- 350 for testing

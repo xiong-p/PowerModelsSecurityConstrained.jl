@@ -19,7 +19,7 @@ using Ipopt
 include("common.jl")
 
 
-case_dir = "/home/jxxiong/A-xjx/Network_1/"
+case_dir = "/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl/data/Network_1/"
 ini_file = joinpath(case_dir, "inputfiles.ini")
 
 function approx_solution1(con_file::String, inl_file::String, raw_file::String, rop_file::String, network_model::String; output_dir::String="", save_time_dir::String="", result_dir::String="")
