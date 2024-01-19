@@ -125,7 +125,143 @@ function parse_c1_files(con_file, inl_file, raw_file, rop_file; ini_file="", sce
     return (ini_file=ini_file, scenario=scenario_id, network=network_model, cost=gen_cost, response=response, contingencies=contingencies, files=files)
 end
 
+##### Generator Cost Data File Parser (.rop) #####
 
+const _c1_rop_sections = [
+    "mod" => "Modification Code",
+    "bus_vm" => "Bus Voltage Attributes",
+    "shunt_adj" => "Adjustable Bus Shunts",
+    "load" => "Bus Loads",
+    "load_adj" => "Adjustable Bus Load Tables",
+    "gen" => "Generator Dispatch Units",
+    "disptbl" => "Active Power Dispatch Tables",
+    "gen_reserve" => "Generator Reserve Units",
+    "qg" => "Generation Reactive Capability",
+    "branch_x" => "Adjustable Branch Reactance",
+    "ctbl" => "Piecewise Linear Cost Curve Tables",
+    "pwc" => "Piecewise Quadratic Cost Curve Tables",
+    "pec" => "Polynomial & Exponential Cost Curve Tables",
+    "reserve" => "Period Reserves",
+    "branch_flow" => "Branch Flows",
+    "int_flow" => "Interface Flows",
+    "lin_const" => "Linear Constraint Dependencies",
+    "dc_const" => "Two Terminal DC Line Constraint Dependencies",
+]
+
+function parse_c1_rop_file(file::String)
+    open(file) do io
+        return parse_c1_rop_file(io)
+    end
+end
+
+function parse_c1_rop_file(io::IO)
+    active_section_idx = 1
+    active_section = _c1_rop_sections[active_section_idx]
+
+    section_data = Dict()
+    section_data[active_section.first] = []
+
+    line_idx = 1
+    lines = readlines(io)
+    while line_idx < length(lines)
+        #line = _remove_psse_comment(lines[line_idx])
+        line = lines[line_idx]
+        if startswith(strip(line), "0")
+            debug(_LOGGER, "finished reading rop section $(active_section.second) with $(length(section_data[active_section.first])) items")
+            active_section_idx += 1
+            if active_section_idx > length(_c1_rop_sections)
+                debug(_LOGGER, "finished reading known rop sections")
+                break
+            end
+            active_section = _c1_rop_sections[active_section_idx]
+            section_data[active_section.first] = []
+            line_idx += 1
+            continue
+        end
+
+        if active_section.first == "gen"
+            push!(section_data[active_section.first], _parse_c1_rop_gen(line))
+        elseif active_section.first == "disptbl"
+            push!(section_data[active_section.first], _parse_c1_rop_pg(line))
+        elseif active_section.first == "ctbl"
+            pwl_line_parts = split(line, ",")
+            @assert length(pwl_line_parts) >= 3
+
+            num_pwl_lines = parse(Int, pwl_line_parts[3])
+            @assert num_pwl_lines > 0
+
+            pwl_point_lines = lines[line_idx+1:line_idx+num_pwl_lines]
+            #pwl_point_lines = remove_comment.(pwl_point_lines)
+            push!(section_data[active_section.first], _parse_c1_rop_pwl(pwl_line_parts, pwl_point_lines))
+            line_idx += num_pwl_lines
+        else
+            info(_LOGGER, "skipping data line: $(line)")
+        end
+        line_idx += 1
+    end
+    return section_data
+end
+
+function _parse_c1_rop_gen(line)
+    line_parts = split(line, ",")
+    @assert length(line_parts) >= 4
+
+    data = Dict(
+        "bus"     => parse(Int, line_parts[1]),
+        "genid"   => strip(line_parts[2]),
+        "disp"    => strip(line_parts[3]),
+        "disptbl" => parse(Int, line_parts[4]),
+    )
+
+    @assert data["disptbl"] >= 0
+
+    return data
+end
+
+function _parse_c1_rop_pg(line)
+    line_parts = split(line, ",")
+    @assert length(line_parts) >= 7
+
+    data = Dict(
+        "tbl"      => parse(Int, line_parts[1]),
+        "pmax"     => strip(line_parts[2]),
+        "pmin"     => strip(line_parts[3]),
+        "fuelcost" => strip(line_parts[4]),
+        "ctyp"     => strip(line_parts[5]),
+        "status"   => strip(line_parts[6]),
+        "ctbl"     => parse(Int, line_parts[7]),
+    )
+
+    @assert data["tbl"] >= 0
+    @assert data["ctbl"] >= 0
+
+    return data
+end
+
+function _parse_c1_rop_pwl(pwl_parts, point_lines)
+    @assert length(pwl_parts) >= 2
+
+    points = []
+
+    for point_line in point_lines
+        point_line_parts = split(point_line, ",")
+        @assert length(point_line_parts) >= 2
+        x = parse(Float64, point_line_parts[1])
+        y = parse(Float64, point_line_parts[2])
+
+        push!(points, (x=x, y=y))
+    end
+
+    data = Dict(
+        "ltbl"   =>  parse(Int, pwl_parts[1]),
+        "label"  => strip(pwl_parts[2]),
+        "points" => points
+    )
+
+    @assert data["ltbl"] >= 0
+
+    return data
+end
 
 
 ##### Transform GOC Data in PM Data #####
@@ -313,6 +449,123 @@ function build_c1_pm_model(c1_data)
 end
 
 
+"a simpler version of `build_pm_model` that does not require contingency information"
+function build_c1_pm_opf_model(c1_data)
+    scenario = c1_data.scenario
+    network = c1_data.network
+
+    ##### General Helpers #####
+
+    gen_lookup = Dict(tuple(gen["source_id"][2], strip(gen["source_id"][3])) => gen for (i,gen) in network["gen"])
+
+    branch_lookup = Dict()
+    for (i,branch) in network["branch"]
+        if !branch["transformer"]
+            branch_id = tuple(branch["source_id"][2], branch["source_id"][3], strip(branch["source_id"][4]))
+        else
+            branch_id = tuple(branch["source_id"][2], branch["source_id"][3], strip(branch["source_id"][5]))
+            @assert branch["source_id"][4] == 0
+            @assert branch["source_id"][6] == 0
+        end
+        branch_lookup[branch_id] = branch
+    end
+
+
+
+    ##### Link Generator Cost Data #####
+
+    @assert network["per_unit"]
+    mva_base = network["baseMVA"]
+
+    dispatch_tbl_lookup = Dict()
+    for dispatch_tbl in c1_data.cost["disptbl"]
+        dispatch_tbl_lookup[dispatch_tbl["ctbl"]] = dispatch_tbl
+    end
+
+    cost_tbl_lookup = Dict()
+    for cost_tbl in c1_data.cost["ctbl"]
+        cost_tbl_lookup[cost_tbl["ltbl"]] = cost_tbl
+    end
+
+    gen_cost_models = Dict()
+    for gen_dispatch in c1_data.cost["gen"]
+        gen_id = (gen_dispatch["bus"], strip(gen_dispatch["genid"]))
+        dispatch_tbl = dispatch_tbl_lookup[gen_dispatch["disptbl"]]
+        cost_tbl = cost_tbl_lookup[dispatch_tbl["ctbl"]]
+
+        gen_cost_models[gen_id] = cost_tbl
+    end
+
+    if length(gen_cost_models) != length(network["gen"])
+        error(_LOGGER, "cost model data missing, network has $(length(network["gen"])) generators, the cost model has $(length(gen_cost_models)) generators")
+    end
+
+    for (gen_id, cost_model) in gen_cost_models
+        pm_gen = gen_lookup[gen_id]
+        pm_gen["model"] = 1
+        pm_gen["model_label"] = cost_model["label"]
+        pm_gen["ncost"] = length(cost_model["points"])
+
+        #println(cost_model["points"])
+        point_list = Float64[]
+        for point in cost_model["points"]
+            push!(point_list, point.x/mva_base)
+            push!(point_list, point.y)
+        end
+        pm_gen["cost"] = point_list
+    end
+
+
+    ##### Flexible Shunt Data #####
+
+    for (i,shunt) in network["shunt"]
+        if shunt["source_id"][1] == "switched shunt"
+            @assert shunt["source_id"][3] == 0
+            @assert shunt["gs"] == 0.0
+            shunt["dispatchable"] = true
+
+            bmin = 0.0
+            bmax = 0.0
+            for (n_name,b_name) in [("n1","b1"),("n2","b2"),("n3","b3"),("n4","b4"),("n5","b5"),("n6","b6"),("n7","b7"),("n8","b8")]
+                if shunt[b_name] <= 0.0
+                    bmin += shunt[n_name]*shunt[b_name]
+                else
+                    bmax += shunt[n_name]*shunt[b_name]
+                end
+            end
+            shunt["bmin"] = bmin/mva_base
+            shunt["bmax"] = bmax/mva_base
+        else
+            shunt["dispatchable"] = false
+        end
+    end
+
+
+    ##### Fix Broken Data #####
+
+    _PM.correct_cost_functions!(network)
+
+    # FYI, this breaks output API
+    #_PM.propagate_topology_status!(network)
+
+    for (i,shunt) in network["shunt"]
+        # test checks if a "switched shunt" in the orginal data model
+        if shunt["dispatchable"]
+            if shunt["bs"] < shunt["bmin"]
+                warn(_LOGGER, "update bs on shunt $(i) to be in bounds $(shunt["bs"]) -> $(shunt["bmin"])")
+                shunt["bs"] = shunt["bmin"]
+            end
+            if shunt["bs"] > shunt["bmax"]
+                warn(_LOGGER, "update bs on shunt $(i) to be in bounds $(shunt["bs"]) -> $(shunt["bmax"])")
+                shunt["bs"] = shunt["bmax"]
+            end
+        end
+    end
+
+
+    return network
+end
+
 
 
 
@@ -454,6 +707,66 @@ function correct_c1_solution!(network)
     end
 
     _c1_summary_changes(network, "base_case", vm_changes, bs_changes, pg_changes, qg_changes)
+end
+
+
+"checks feasibility criteria of contingencies, corrects when possible"
+function correct_c1_contingency_solutions!(network, contingency_solutions)
+    bus_gens = gens_by_bus(network)
+
+    cont_changes = Int64[]
+    cont_vm_changes_max = [0.0]
+    cont_bs_changes_max = [0.0]
+    cont_pg_changes_max = [0.0]
+    cont_qg_changes_max = [0.0]
+
+    for cont_sol in contingency_solutions
+        changes = correct_c1_contingency_solution!(network, cont_sol; bus_gens=bus_gens)
+
+        push!(cont_changes, changes.changed)
+        push!(cont_vm_changes_max, changes.vm_changes_max)
+        push!(cont_bs_changes_max, changes.bs_changes_max)
+        push!(cont_pg_changes_max, changes.pg_changes_max)
+        push!(cont_qg_changes_max, changes.qg_changes_max)
+    end
+
+    println("")
+
+    data = [
+        "----",
+        "bus",
+        "branch",
+        "gen_cont",
+        "branch_cont",
+        "changes_count",
+        "vm_max_max",
+        "bs_max_max",
+        "pg_max_max",
+        "qg_max_max",
+        "vm_max_mean",
+        "bs_max_mean",
+        "pg_max_mean",
+        "qg_max_mean",
+    ]
+    println(join(data, ", "))
+
+    data = [
+        "DATA_CCS",
+        length(network["bus"]),
+        length(network["branch"]),
+        length(network["gen_contingencies"]),
+        length(network["branch_contingencies"]),
+        sum(cont_changes),
+        maximum(cont_vm_changes_max),
+        maximum(cont_bs_changes_max),
+        maximum(cont_pg_changes_max),
+        maximum(cont_qg_changes_max),
+        mean(cont_vm_changes_max),
+        mean(cont_bs_changes_max),
+        mean(cont_pg_changes_max),
+        mean(cont_qg_changes_max),
+    ]
+    println(join(data, ", "))
 end
 
 
@@ -974,5 +1287,3 @@ function build_c1_pm_solution(network, goc_sol)
 
     return solution
 end
-
-
