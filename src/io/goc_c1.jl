@@ -125,6 +125,74 @@ function parse_c1_files(con_file, inl_file, raw_file, rop_file; ini_file="", sce
     return (ini_file=ini_file, scenario=scenario_id, network=network_model, cost=gen_cost, response=response, contingencies=contingencies, files=files)
 end
 
+function parse_c1_opf_files(ini_file; scenario_id="")
+    files = Dict(
+        "rop" => "x",
+        "raw" => "x",
+    )
+
+    if !endswith(ini_file, ".ini")
+        warn(_LOGGER, "given init file does not end with .ini, $(ini_file)")
+    end
+
+    open(ini_file) do io
+        for line in readlines(io)
+            line = strip(line)
+            #println(line)
+            if startswith(line, "[INPUTS]")
+                # do nothing
+            elseif startswith(line, "ROP")
+                files["rop"] = strip(split(line,"=")[2])
+            elseif startswith(line, "RAW")
+                files["raw"] = strip(split(line,"=")[2])
+            else
+                warn(_LOGGER, "unknown input given in ini file: $(line)")
+            end
+        end
+    end
+
+    #println(files)
+
+    ini_dir = dirname(ini_file)
+
+    #println(ini_dir)
+    scenario_dirs = [file for file in readdir(ini_dir) if isdir(joinpath(ini_dir, file))]
+    scenario_dirs = sort(scenario_dirs)
+    #println(scenario_dirs)
+
+    if length(scenario_id) == 0
+        scenario_id = scenario_dirs[1]
+        info(_LOGGER, "no scenario specified, selected directory \"$(scenario_id)\"")
+    else
+        if !(scenario_id in scenario_dirs)
+            error(_LOGGER, "$(scenario_id) not found in $(scenario_dirs)")
+        end
+    end
+
+    for (id, path) in files
+        if path == "."
+            files[id] = ini_dir
+        elseif path == "x"
+            files[id] = joinpath(ini_dir, scenario_id)
+        else
+            error(_LOGGER, "unknown file path directive $(path) for file $(id)")
+        end
+    end
+
+    files["raw"] = joinpath(files["raw"], "case.raw")
+    files["rop"] = joinpath(files["rop"], "case.rop")
+
+    info(_LOGGER, "Parsing Files")
+    info(_LOGGER, "  raw: $(files["raw"])")
+    info(_LOGGER, "  rop: $(files["rop"])")
+
+    network_model = _PM.parse_file(files["raw"], import_all=true)
+    gen_cost = parse_c1_rop_file(files["rop"])
+
+    return (ini_file=ini_file, scenario=scenario_id, network=network_model, cost=gen_cost, files=files)
+end
+
+
 ##### Unit Inertia and Governor Response Data File Parser (.inl) #####
 
 function parse_c1_inl_file(file::String)
@@ -162,6 +230,9 @@ function parse_c1_inl_file(io::IO)
     end
     return inl_list
 end
+
+
+
 
 ##### Generator Cost Data File Parser (.rop) #####
 
@@ -300,6 +371,70 @@ function _parse_c1_rop_pwl(pwl_parts, point_lines)
 
     return data
 end
+
+
+
+
+
+
+function parse_c1_solution1_file(file::String)
+    open(file) do io
+        return parse_c1_solution1_file(io)
+    end
+end
+
+function parse_c1_solution1_file(io::IO)
+    bus_data_list = []
+    gen_data_list = []
+
+    lines = readlines(io)
+
+    # skip bus list header section
+    idx = 1
+
+    separator_count = 0
+    skip_next = false
+
+    while idx <= length(lines)
+        line = lines[idx]
+        if length(strip(line)) == 0
+            warn(_LOGGER, "skipping blank line in solution1 file ($(idx))")
+        elseif skip_next
+            skip_next = false
+        elseif startswith(strip(line), "--")
+            separator_count += 1
+            skip_next = true
+        else
+            if separator_count == 1
+                parts = split(line, ",")
+                @assert length(parts) >= 4
+                bus_data = (
+                    bus = parse(Int, parts[1]),
+                    vm = parse(Float64, parts[2]),
+                    va = parse(Float64, parts[3]),
+                    bcs = parse(Float64, parts[4])
+                )
+                push!(bus_data_list, bus_data)
+            elseif separator_count == 2
+                parts = split(line, ",")
+                @assert length(parts) >= 4
+                gen_data = (
+                    bus = parse(Int, parts[1]),
+                    id = strip(strip(parts[2]), ['\'', ' ']),
+                    pg = parse(Float64, parts[3]),
+                    qg = parse(Float64, parts[4])
+                )
+                push!(gen_data_list, gen_data)
+            else
+                warn(_LOGGER, "skipping line in solution1 file ($(idx)): $(line)")
+            end
+        end
+        idx += 1
+    end
+
+    return (bus=bus_data_list, gen=gen_data_list)
+end
+
 
 
 ##### Transform GOC Data in PM Data #####
