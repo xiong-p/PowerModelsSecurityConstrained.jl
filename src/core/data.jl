@@ -75,80 +75,80 @@ function gens_by_bus(network::Dict{String,<:Any})
 end
 
 
-function deactivate_rate_a!(network::Dict{String,<:Any})
-    network["active_rates"] = Int[]
-    for (i,branch) in network["branch"]
-        branch["rate_a_inactive"] = branch["rate_a"]
-        delete!(branch, "rate_a")
-    end
-end
+# function deactivate_rate_a!(network::Dict{String,<:Any})
+#     network["active_rates"] = Int[]
+#     for (i,branch) in network["branch"]
+#         branch["rate_a_inactive"] = branch["rate_a"]
+#         delete!(branch, "rate_a")
+#     end
+# end
 
-function activate_rate_a!(network::Dict{String,<:Any})
-    if haskey(network, "active_rates")
-        delete!(network, "active_rates")
-    end
+# function activate_rate_a!(network::Dict{String,<:Any})
+#     if haskey(network, "active_rates")
+#         delete!(network, "active_rates")
+#     end
 
-    for (i,branch) in network["branch"]
-        if haskey(branch, "rate_a_inactive")
-            branch["rate_a"] = branch["rate_a_inactive"]
-            delete!(branch, "rate_a_inactive")
-        end
-    end
-end
+#     for (i,branch) in network["branch"]
+#         if haskey(branch, "rate_a_inactive")
+#             branch["rate_a"] = branch["rate_a_inactive"]
+#             delete!(branch, "rate_a_inactive")
+#         end
+#     end
+# end
 
-function activate_rate_a_violations!(network::Dict{String,<:Any})
-    ac_flows = _PM.calc_branch_flow_ac(network)
-    for (i,branch) in network["branch"]
-        branch["pf_start"] = ac_flows["branch"][i]["pf"]
-        branch["qf_start"] = ac_flows["branch"][i]["qf"]
+# function activate_rate_a_violations!(network::Dict{String,<:Any})
+#     ac_flows = _PM.calc_branch_flow_ac(network)
+#     for (i,branch) in network["branch"]
+#         branch["pf_start"] = ac_flows["branch"][i]["pf"]
+#         branch["qf_start"] = ac_flows["branch"][i]["qf"]
 
-        branch["pt_start"] = ac_flows["branch"][i]["pt"]
-        branch["qt_start"] = ac_flows["branch"][i]["qt"]
-    end
+#         branch["pt_start"] = ac_flows["branch"][i]["pt"]
+#         branch["qt_start"] = ac_flows["branch"][i]["qt"]
+#     end
 
-    line_flow_vio = false
-    for (i,branch) in network["branch"]
-        if !haskey(branch, "rate_a")
-            if (ac_flows["branch"][i]["pf"]^2 + ac_flows["branch"][i]["qf"]^2 > branch["rate_a_inactive"]^2 ||
-                ac_flows["branch"][i]["pt"]^2 + ac_flows["branch"][i]["qt"]^2 > branch["rate_a_inactive"]^2)
-                info(_LOGGER, "add rate_a flow limit on branch $(i) $(branch["source_id"])")
-                #branch["rate_a"] = branch["rate_a_inactive"] - max(abs(ac_flows["branch"][i]["qf"]), abs(ac_flows["branch"][i]["qt"]))
-                branch["rate_a"] = branch["rate_a_inactive"]
-                push!(network["active_rates"], branch["index"])
-                line_flow_vio = true
-            end
-        else
-            sm_fr = sqrt(ac_flows["branch"][i]["pf"]^2 + ac_flows["branch"][i]["qf"]^2)
-            sm_to = sqrt(ac_flows["branch"][i]["pf"]^2 + ac_flows["branch"][i]["qf"]^2)
-            vio = max(0.0, sm_fr - branch["rate_a"], sm_to - branch["rate_a"])
-            if vio > 0.01
-                warn(_LOGGER, "add rate_a flow limit violations $(vio) on branch $(i) $(branch["source_id"])")
-            end
-        end
-    end
+#     line_flow_vio = false
+#     for (i,branch) in network["branch"]
+#         if !haskey(branch, "rate_a")
+#             if (ac_flows["branch"][i]["pf"]^2 + ac_flows["branch"][i]["qf"]^2 > branch["rate_a_inactive"]^2 ||
+#                 ac_flows["branch"][i]["pt"]^2 + ac_flows["branch"][i]["qt"]^2 > branch["rate_a_inactive"]^2)
+#                 info(_LOGGER, "add rate_a flow limit on branch $(i) $(branch["source_id"])")
+#                 #branch["rate_a"] = branch["rate_a_inactive"] - max(abs(ac_flows["branch"][i]["qf"]), abs(ac_flows["branch"][i]["qt"]))
+#                 branch["rate_a"] = branch["rate_a_inactive"]
+#                 push!(network["active_rates"], branch["index"])
+#                 line_flow_vio = true
+#             end
+#         else
+#             sm_fr = sqrt(ac_flows["branch"][i]["pf"]^2 + ac_flows["branch"][i]["qf"]^2)
+#             sm_to = sqrt(ac_flows["branch"][i]["pf"]^2 + ac_flows["branch"][i]["qf"]^2)
+#             vio = max(0.0, sm_fr - branch["rate_a"], sm_to - branch["rate_a"])
+#             if vio > 0.01
+#                 warn(_LOGGER, "add rate_a flow limit violations $(vio) on branch $(i) $(branch["source_id"])")
+#             end
+#         end
+#     end
 
-    return line_flow_vio
-end
+#     return line_flow_vio
+# end
 
-function update_active_power_data!(network::Dict{String,<:Any}, data::Dict{String,<:Any}; branch_flow=false)
-    for (i,bus) in data["bus"]
-        nw_bus = network["bus"][i]
-        nw_bus["va"] = bus["va"]
-    end
+# function update_active_power_data!(network::Dict{String,<:Any}, data::Dict{String,<:Any}; branch_flow=false)
+#     for (i,bus) in data["bus"]
+#         nw_bus = network["bus"][i]
+#         nw_bus["va"] = bus["va"]
+#     end
 
-    for (i,gen) in data["gen"]
-        nw_gen = network["gen"][i]
-        nw_gen["pg"] = gen["pg"]
-    end
+#     for (i,gen) in data["gen"]
+#         nw_gen = network["gen"][i]
+#         nw_gen["pg"] = gen["pg"]
+#     end
 
-    if branch_flow
-        for (i,branch) in data["branch"]
-            nw_branch = network["branch"][i]
-            nw_branch["pf"] = branch["pf"]
-            nw_branch["pt"] = branch["pt"]
-        end
-    end
-end
+#     if branch_flow
+#         for (i,branch) in data["branch"]
+#             nw_branch = network["branch"][i]
+#             nw_branch["pf"] = branch["pf"]
+#             nw_branch["pt"] = branch["pt"]
+#         end
+#     end
+# end
 
 
 function c1_extract_solution(network::Dict{String,<:Any}; branch_flow=false)

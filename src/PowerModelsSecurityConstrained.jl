@@ -58,11 +58,11 @@ include("io/goc.jl")
 include("io/goc_c1.jl")
 
 include("prob/opf.jl")
-include("prob/scopf.jl")
+# include("prob/scopf.jl")
 include("prob/contingency-stage.jl")
 
 include("util/contingency-filters.jl")
-include("util/scopf-iterative.jl")
+# include("util/scopf-iterative.jl")
 
 # this must come last to support automated export
 include("core/export.jl")
