@@ -56,10 +56,8 @@ include("form/dcp.jl")
 
 include("io/goc.jl")
 include("io/goc_c1.jl")
-include("io/goc_c2.jl")
 
 include("prob/opf.jl")
-include("prob/ots.jl")
 include("prob/scopf.jl")
 include("prob/contingency-stage.jl")
 
