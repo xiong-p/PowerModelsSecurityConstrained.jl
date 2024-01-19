@@ -5,7 +5,7 @@ network_dir="/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl/data/Network_
 # 601- 650 for larger network
 # 301- 350 for testing
 # 1-200 for training and testing
-for scenario_id in $(seq 601 601);
+for scenario_id in $(seq 520 520);
 do
     echo $scenario_id
     scenario=$network_dir"scenario_"$scenario_id"/"
@@ -25,7 +25,7 @@ do
     echo $cmd_one
     eval $cmd_one&>$scenario"Approx1_"$scenario_id".log"
 
-    cmd_two="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"Approx2.jl\"); Approx2(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", \"${NetworkModel}\", \"${scenario}\", \"${save_time_dir2}\")'"
-    echo $cmd_two
-    eval $cmd_two&>$scenario"Approx2_"$scenario_id".log"
+    # cmd_two="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"Approx2.jl\"); Approx2(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", \"${NetworkModel}\", \"${scenario}\", \"${save_time_dir2}\")'"
+    # echo $cmd_two
+    # eval $cmd_two&>$scenario"Approx2_"$scenario_id".log"
 done
