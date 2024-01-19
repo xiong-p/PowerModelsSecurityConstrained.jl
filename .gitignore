@@ -23,3 +23,9 @@ docs/site/
 # committed for packages, but should be committed for applications that require a static
 # environment.
 Manifest.toml
+
+src/scripts/c1/logs/
+src/scripts/c1/bench*/
+src/scripts/c1/solve_time*/
+src/scripts/c1/*.txt
+test/data/
