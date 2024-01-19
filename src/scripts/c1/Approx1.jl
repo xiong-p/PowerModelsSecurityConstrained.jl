@@ -21,7 +21,7 @@ println("script startup time: $(time() - start_init)")
 
 
 function Approx1(InFile1::String, InFile2::String, InFile3::String, InFile4::String, TimeLimitInSeconds::Int64, ScoringMethod::Int64, NetworkModel::String, output_dir::String, save_time_dir::String, result_dir::String)
-    println("running MyJulia1")
+    println("running Benchmark1")
     println("  $(InFile1)")
     println("  $(InFile2)")
     println("  $(InFile3)")
