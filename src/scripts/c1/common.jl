@@ -74,3 +74,74 @@ function write_c1_power_balance_summary(scenario_id, p_delta_abs_max, q_delta_ab
 
 end
 
+function write_solve_time(filename, scenario_id, objective; load_time=-1.0, solve_time=-1.0, filter_time=-1.0, total_time=load_time+solve_time+filter_time)
+    data = [
+        scenario_id,
+        objective,
+        load_time,
+        solve_time,
+        filter_time,
+        total_time,
+    ]
+    if !isfile(filename)
+        cols = [
+            "scenario",
+            "objective",
+            "load_time",
+            "solve_time",
+            "filter_time",
+            "total_time"
+        ]
+        open(filename, "a") do io
+            println(io, join(cols, ","))
+        end
+    end
+
+    open(filename, "a") do io
+        println(io, join(data, ","))
+    end
+end
+
+function write_solve_time(filename, result, scenario)
+    if !isfile(filename)
+        cols = [
+            "scenario",
+            "ipopt_obj",
+            "ipopt_time",
+            "termination_status"
+        ]
+        open(filename, "a") do io
+            println(io, join(cols, ","))
+        end
+    end
+
+    data = [
+        scenario,
+        result["objective"],
+        result["solve_time"],
+        result["termination_status"]
+    ]
+    open(filename, "a") do io
+        println(io, join(data, ","))
+    end
+end
+
+function write_solve_time_stage2(filename, time, scenario)
+    if !isfile(filename)
+        cols = [
+            "scenario",
+            "second_stage_runtime"
+        ]
+        open(filename, "a") do io
+            println(io, join(cols, ","))
+        end
+    end
+
+    data = [
+        scenario,
+        time
+    ]
+    open(filename, "a") do io
+        println(io, join(data, ","))
+    end
+end
