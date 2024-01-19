@@ -17,7 +17,7 @@ do
     InFile4=$scenario'case.rop'
     NetworkModel="scenario_"$scenario_id
     echo $scenarios
-    
+
     result_dir="ipopt_time_approx_valid.txt"
     save_time_dir1="stage_one_solve_time_approx_valid.txt"
     save_time_dir2="stage_two_solve_time_approx_valid.txt"
@@ -26,7 +26,7 @@ do
     echo $cmd_one
     eval $cmd_one&>$scenario"Approx1_"$scenario_id".log"
 
-    # cmd_two="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"Approx2.jl\"); Approx2(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", \"${NetworkModel}\", \"${scenario}\", \"${save_time_dir2}\")'"
-    # echo $cmd_two
-    # eval $cmd_two&>$scenario"Approx2_"$scenario_id".log"
+    cmd_two="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"Approx2.jl\"); Approx2(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", \"${NetworkModel}\", \"${scenario}\", \"${save_time_dir2}\")'"
+    echo $cmd_two
+    eval $cmd_two&>$scenario"Approx2_"$scenario_id".log"
 done
