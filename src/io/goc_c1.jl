@@ -125,6 +125,44 @@ function parse_c1_files(con_file, inl_file, raw_file, rop_file; ini_file="", sce
     return (ini_file=ini_file, scenario=scenario_id, network=network_model, cost=gen_cost, response=response, contingencies=contingencies, files=files)
 end
 
+##### Unit Inertia and Governor Response Data File Parser (.inl) #####
+
+function parse_c1_inl_file(file::String)
+    open(file) do io
+        return parse_c1_inl_file(io)
+    end
+end
+
+function parse_c1_inl_file(io::IO)
+    inl_list = []
+    for line in readlines(io)
+        #line = _remove_psse_comment(line)
+
+        if startswith(strip(line), "0")
+            debug(_LOGGER, "inl file sentinel found")
+            break
+        end
+        line_parts = split(line, ",")
+        @assert length(line_parts) >= 7
+
+        inl_data = Dict(
+            "i"    => parse(Int, line_parts[1]),
+            "id"   => strip(line_parts[2]),
+            "h"    => strip(line_parts[3]),
+            "pmax" => strip(line_parts[4]),
+            "pmin" => strip(line_parts[5]),
+            "r"    => parse(Float64, line_parts[6]),
+            "d"    => strip(line_parts[7])
+        )
+
+        @assert inl_data["r"] >= 0.0
+
+        #println(inl_data)
+        push!(inl_list, inl_data)
+    end
+    return inl_list
+end
+
 ##### Generator Cost Data File Parser (.rop) #####
 
 const _c1_rop_sections = [
