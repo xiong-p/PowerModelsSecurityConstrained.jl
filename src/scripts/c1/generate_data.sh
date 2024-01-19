@@ -10,13 +10,13 @@ do
     NetworkModel="scenario_"$scenario_id
     echo $scenario
 
-    cmd_one="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"MyJulia1.jl\"); MyJulia1(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", 600, 2, \"${NetworkModel}\", \"${scenario}\")'"
+    cmd_one="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"Benchmark1.jl\"); Benchmark1(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", 600, 2, \"${NetworkModel}\", \"${scenario}\")'"
     echo $cmd_one
-    eval $cmd_one&>$scenario"MyJulia1.log"
+    eval $cmd_one&>$scenario"Benchmark1.log"
 
-    cmd_two="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"MyJulia2.jl\"); MyJulia2(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", 600, 2, \"${NetworkModel}\", \"${scenario}\")'"
+    cmd_two="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' -e 'include(\"Benchmark2.jl\"); Benchmark2(\"${InFile1}\", \"${InFile2}\", \"${InFile3}\", \"${InFile4}\", 600, 2, \"${NetworkModel}\", \"${scenario}\")'"
     echo $cmd_two
-    eval $cmd_two&>$scenario"MyJulia2.log"
+    eval $cmd_two&>$scenario"Benchmark2.log"
 
     scenario="scenario_"$scenario_id
     cmd_three="julia --project='/home/jxxiong/A-xjx/PowerModelsSecurityConstrained.jl' generate_stage1_feasible.jl --scenario ${scenario}"
